@@ -1,4 +1,5 @@
 import {simplifyLoop} from './geometry.js';
+import {segmentPolyline,degrees} from './curve-fit.js';
 
 const fmt = n => String(Number(n.toFixed(6)));
 const num = (value, fallback, min, max, label) => {
@@ -91,16 +92,29 @@ export function fitCircle(loop,tolerance=0.025) {
   if(error>tolerance)return null;
   return {cx,cy,radius,error};
 }
-const paths = (data,forSvg=false) => data.loops.map(loop=>{
-  const circle=data.options.dxfMode==='circles'?fitCircle(loop,data.options.curveTolerance):null;
-  if(circle)return {circle,loop};
-  return {loop};
+const paths = data => data.loops.map(loop=>{
+  const fit=data.options.dxfMode==='circles';
+  const circle=fit?fitCircle(loop,data.options.curveTolerance):null;
+  return {loop,circle,segments:fit&&!circle?segmentPolyline(loop,data.options.curveTolerance):null};
 });
 export function buildSvg(contours,options={}) {
   const data=transformContours(contours,options),o=data.options;
   const bb=data;
-  const elems=paths(data).map(({loop,circle})=>{
+  const elems=paths(data).map(({loop,circle,segments})=>{
     if(circle)return '<circle cx="'+fmt(circle.cx)+'" cy="'+fmt(-circle.cy)+'" r="'+fmt(circle.radius)+'"/>';
+    if(segments){
+      const first=segments[0].start;
+      const commands=['M '+fmt(first[0])+' '+fmt(-first[1])];
+      for(const segment of segments){
+        const end=segment.end;
+        if(segment.type==='arc'){
+          const large=Math.abs(segment.sweep)>Math.PI?1:0;
+          const sweep=segment.sweep>0?0:1;
+          commands.push('A '+fmt(segment.radius)+' '+fmt(segment.radius)+' 0 '+large+' '+sweep+' '+fmt(end[0])+' '+fmt(-end[1]));
+        }else commands.push('L '+fmt(end[0])+' '+fmt(-end[1]));
+      }
+      return '<path d="'+commands.join(' ')+' Z"/>';
+    }
     return '<path d="'+loop.map(([x,y],i)=>(i?'L ':'M ')+fmt(x)+' '+fmt(-y)).join(' ')+' Z"/>';
   }).join('\n');
   const w=bb.width+2*o.margin,h=bb.height+2*o.margin;
@@ -110,9 +124,23 @@ export function buildSvg(contours,options={}) {
 export function buildDxf(contours,options={}) {
   const data=transformContours(contours,options),o=data.options;
   const lines=['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','9','$INSUNITS','70','4','0','ENDSEC','0','SECTION','2','ENTITIES'];
-  for(const {loop,circle} of paths(data)){
+  for(const {loop,circle,segments} of paths(data)){
     if(circle){
       lines.push('0','CIRCLE','8',o.layer,'10',fmt(circle.cx),'20',fmt(circle.cy),'30','0','40',fmt(circle.radius));
+    }else if(segments){
+      for(const segment of segments){
+        if(segment.type==='arc'){
+          let start=degrees(Math.atan2(segment.start[1]-segment.cy,segment.start[0]-segment.cx));
+          let end=degrees(Math.atan2(segment.end[1]-segment.cy,segment.end[0]-segment.cx));
+          if(segment.sweep<0)[start,end]=[end,start];
+          lines.push('0','ARC','8',o.layer,'10',fmt(segment.cx),'20',fmt(segment.cy),'30','0',
+            '40',fmt(segment.radius),'50',fmt(start),'51',fmt(end));
+        }else {
+          const a=segment.start,b=segment.end;
+          lines.push('0','LINE','8',o.layer,'10',fmt(a[0]),'20',fmt(a[1]),'30','0',
+            '11',fmt(b[0]),'21',fmt(b[1]),'31','0');
+        }
+      }
     }else if(o.dxfMode==='lines'){
       for(let i=0;i<loop.length;i++){
         const a=loop[i],b=loop[(i+1)%loop.length];
