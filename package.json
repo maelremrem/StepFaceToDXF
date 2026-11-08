@@ -1,0 +1,20 @@
+{
+  "name": "step-face-to-dxf",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/copy-occt.mjs",
+    "dev": "vite --host 0.0.0.0",
+    "build": "node scripts/copy-occt.mjs && vite build && node scripts/verify-dist.mjs",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "occt-import-js": "0.0.23",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}
