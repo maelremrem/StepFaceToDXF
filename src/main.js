@@ -206,11 +206,11 @@ function makeMeshModel(geometries,options){
     const result=groupMeshRegions(positions,indices,{
       planeTolerance:options.planarity,normalDegrees:options.regionAngle
     });
-    const faceGroups=result.regions.map((region,i)=>{
-      const ids=[];
-      for(let t=0;t<result.triToRegion.length;t++)if(result.triToRegion[t]===i)ids.push(t);
-      return {triangles:region.triangles,triangleIds:ids};
-    });
+    const faceGroups=result.regions.map(region=>({triangles:region.triangles,triangleIds:[]}));
+    for(let t=0;t<result.triToRegion.length;t++){
+      const regionId=result.triToRegion[t];
+      if(regionId>=0)faceGroups[regionId].triangleIds.push(t);
+    }
     addMesh(positions,indices,faceGroups,0x95aebd,'mesh');
     rawGeometry.dispose();
   }
@@ -235,8 +235,10 @@ function showPreview(contours){
   const ns='http://www.w3.org/2000/svg';
   const svg=document.createElementNS(ns,'svg');
   svg.setAttribute('viewBox','-4 -4 '+(contours.width+8)+' '+(contours.height+8));
-  const all=contours.loops.flat(),minX=Math.min(...all.map(p=>p[0]));
-  const minY=Math.min(...all.map(p=>p[1]));
+  let minX=Infinity,minY=Infinity;
+  for(const loop of contours.loops)for(const point of loop){
+    minX=Math.min(minX,point[0]);minY=Math.min(minY,point[1]);
+  }
   for(const loop of contours.loops){
     const path=document.createElementNS(ns,'path');
     path.setAttribute('d',loop.map(([x,y],i)=>(i?'L':'M')+(x-minX)+','+(contours.height-(y-minY))).join(' ')+' Z');
@@ -291,7 +293,7 @@ function pickFace(face,append){
   const isSelected=selected.has(face.id);
   if(!append)clearSelected();
   else if(isSelected){deselect(face.id);updatePreview();return;}
-  if(isSelected&&!append){status(face.label+' selected.');return;}
+  if(isSelected&&!append)status('Selection refreshed.');
   if(selected.size>=50)return status('Maximum 50 selected faces.',true);
   try{
     const contours=extractContours(face.positions,face.triangles,readImportOptions().planarity);

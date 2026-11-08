@@ -21,11 +21,11 @@ export function simplifyLoop(points, threshold=0.003) {
 }
 
 export function extractContours(positions, triangles, tolerance=0.02) {
-  if(!triangles?.length || triangles.length%3) throw Error('Maillage de face incomplet.');
+  if(!triangles?.length || triangles.length%3) throw Error('Incomplete face mesh.');
   const vertices=[], ids=new Map(), counts=new Map();
   const vertex=index=>{
     const i=3*index,p=[positions[i],positions[i+1],positions[i+2]];
-    if(!p.every(Number.isFinite)) throw Error('Coordonnées non valides.');
+    if(!p.every(Number.isFinite)) throw Error('Invalid coordinates.');
     const key=p.map(x=>Math.round(x/1e-5)).join(',');
     if(!ids.has(key)){ids.set(key,vertices.length);vertices.push(p);}
     return ids.get(key);
@@ -44,9 +44,9 @@ export function extractContours(positions, triangles, tolerance=0.02) {
       if(prev) prev.count++; else counts.set(key,{a,b,count:1});
     }
   }
-  if(!normal) throw Error('Aucun triangle valide.');
+  if(!normal) throw Error('No valid triangles.');
   if(vertices.some(p=>Math.abs(dot(sub(p,origin),normal))>Math.max(tolerance,span*1e-5)))
-    throw Error('Face non plane : sélectionnez une surface plate.');
+    throw Error('Non-planar face: select a flat surface.');
   const adj=new Map();
   for(const {a,b,count} of counts.values()){
     if(count!==1) continue;
@@ -54,29 +54,29 @@ export function extractContours(positions, triangles, tolerance=0.02) {
     if(!adj.has(b)) adj.set(b,[]);
     adj.get(a).push(b);adj.get(b).push(a);
   }
-  if(!adj.size || [...adj.values()].some(v=>v.length!==2)) throw Error('Contour non fermé ou ambigu.');
+  if(!adj.size || [...adj.values()].some(v=>v.length!==2)) throw Error('Open or ambiguous contour.');
   const visited=new Set(),loops3D=[];
   for(const first of adj.keys()){
     if(visited.has(first)) continue;
     let current=first,prior=-1;const loop=[];
     for(let n=0;n<=adj.size;n++){
       if(current===first && loop.length) break;
-      if(visited.has(current)) throw Error('Contour auto-intersecté.');
+      if(visited.has(current)) throw Error('Self-intersecting contour.');
       visited.add(current);loop.push(vertices[current]);
       const near=adj.get(current),next=near[0]===prior?near[1]:near[0];
       prior=current;current=next;
-      if(n===adj.size) throw Error('Contour ouvert.');
+      if(n===adj.size) throw Error('Open contour.');
     }
     if(loop.length>=3)loops3D.push(loop);
   }
-  if(!loops3D.length) throw Error('Aucun contour fermé.');
+  if(!loops3D.length) throw Error('No closed contour.');
   const ref=Math.abs(dot(normal,[1,0,0]))<.9?[1,0,0]:[0,1,0];
   const x=norm(sub(ref,normal.map(v=>v*dot(ref,normal)))),y=norm(cross(normal,x));
   const raw=loops3D.map(loop=>loop.map(p=>[dot(sub(p,origin),x),dot(sub(p,origin),y)]));
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   for(const loop of raw)for(const [a,b] of loop){minX=Math.min(minX,a);minY=Math.min(minY,b);maxX=Math.max(maxX,a);maxY=Math.max(maxY,b);}
   const width=maxX-minX,height=maxY-minY;
-  if(width<1e-8 || height<1e-8) throw Error('Face dégénérée.');
+  if(width<1e-8 || height<1e-8) throw Error('Degenerate face.');
   const loops=raw.map(loop=>simplifyLoop(loop.map(([a,b])=>[a-minX,b-minY])));
   return {width,height,loops,loops3D};
 }
