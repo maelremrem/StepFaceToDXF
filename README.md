@@ -57,3 +57,10 @@ GitHub Pages is published by GitHub Actions on commits to `main`; pull requests 
 There is no backend, tracking endpoint, account system, or model upload. Imported files remain in your browser and custom presets are stored in the browser's own local storage.
 
 For an explanation of the exact-geometry limitation, see [Accuracy roadmap](docs/ACCURACY.md).
+## License
+
+Copyright (C) 2026 maelremrem.
+
+StepFaceToDXF's original source code is licensed under the **GNU General Public License version 3 only (GPL-3.0-only)**. See the full [LICENSE](LICENSE) text.
+
+Third-party dependencies are distributed under their respective licenses.
