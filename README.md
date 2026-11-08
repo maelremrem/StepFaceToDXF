@@ -38,4 +38,3 @@ npm run build
 
 Enable Settings → Pages → Source: GitHub Actions. Pushing to `main` builds and deploys automatically.
 
-MIT? License has not been chosen yet; please check repository licensing before reusing source.
