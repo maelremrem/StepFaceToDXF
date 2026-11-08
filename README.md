@@ -21,7 +21,7 @@ CAD imports allow configurable linear tessellation deviation and angular deviati
 
 ## Export formats
 
-- **DXF:** closed LWPOLYLINE, LINE entities, or optional approximate fitted CIRCLE entities; configurable layer; \`$INSUNITS=4\` (millimeters).
+- **DXF:** closed LWPOLYLINE, LINE entities, or optional approximate fitted CIRCLE and ARC entities; configurable layer; `$INSUNITS=4` (millimeters).
 - **SVG:** physical width/height in mm, editable stroke width and page margin.
 - **PDF:** one-page, plain vector geometry, scaled in real millimeters.
 - **EPS:** scalable PostScript vector paths.
@@ -29,13 +29,13 @@ CAD imports allow configurable linear tessellation deviation and angular deviati
 - **JSON:** structured 2D contour coordinates and parameters.
 - **CSV:** XY coordinates and contour/point IDs.
 
-Settings: rotation (0/90/180/270 degrees), XY mirror, scale, offsets in mm, optional polygon simplification, remove holes, SVG/PDF margin and stroke, DXF layers, and circle-fit tolerance. There are built-in presets and editable custom profiles saved in the local browser.
+Settings: rotation (0/90/180/270 degrees), XY mirror, scale, offsets in mm, optional polygon simplification, remove holes, SVG/PDF margin and stroke, DXF layers, and curve-fit tolerance. There are built-in presets and editable custom profiles saved in the local browser.
 
 Select multiple faces using **Shift+click** or enable Multi-select. The app can merge adjacent coplanar faces into a single file, or export multiple selected faces independently into a ZIP containing selected export formats.
 
 ## Accuracy and limitations
 
-**The current importer exposes triangulated geometry, not exact OpenCascade B-Rep edges.** DXF circles can be *fitted* from sampled polygon loops, but fitted circles and exported segments are **not exact CAD-native geometry**. Mixed line-and-arc profiles are still polygonal. The tessellation deviation is a meshing target, not a guaranteed manufacturing tolerance. Always check dimensions in a CAD/CAM tool before fabrication.
+**The current importer exposes triangulated geometry, not exact OpenCascade B-Rep edges.** DXF circles and arcs can be *fitted* from polygon samples, but fitted curves and exported segments are **not exact CAD-native geometry**. Curve fitting is optional, limited by the selected tolerance, and falls back to line segments. The tessellation deviation is a meshing target, not a guaranteed manufacturing tolerance. Always check dimensions in a CAD/CAM tool before fabrication.
 
 STL/OBJ/PLY models do not reliably specify physical units, so select the correct source units before import. Highly curved meshes create many small planar regions; open, non-manifold or imperfect meshes may not yield closed 2D contours.
 
@@ -43,15 +43,17 @@ The PDF and EPS implementations export plain vector paths, not a complete publis
 
 ## Development
 
-\`\`\`sh
+```sh
 npm install
 npm test
 npm run dev
 npm run build
-\`\`\`
+```
 
-GitHub Pages is published by GitHub Actions on commits to \`main\`; pull requests run unit tests and the production build without deploying.
+GitHub Pages is published by GitHub Actions on commits to `main`; pull requests run unit tests and the production build without deploying.
 
 ## Privacy
 
 There is no backend, tracking endpoint, account system, or model upload. Imported files remain in your browser and custom presets are stored in the browser's own local storage.
+
+For an explanation of the exact-geometry limitation, see [Accuracy roadmap](docs/ACCURACY.md).
