@@ -18,6 +18,6 @@ test('outer and inner contours, dimensions and units',()=>{
 });
 test('rejects nonplanar surfaces',()=>{
   const [p,t]=plate();p[2]=2;
-  assert.throws(()=>extractContours(p,t),/non plane/);
+  assert.throws(()=>extractContours(p,t),/Non-planar/i);
 });
 test('simplifies straight segments',()=>assert.equal(simplifyLoop([[0,0],[5,0],[10,0],[10,10],[0,10]]).length,4));

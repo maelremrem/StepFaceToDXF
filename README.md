@@ -1,40 +1,59 @@
-# StepFaceToDXF — browser CAD face exporter
+# StepFaceToDXF
 
-[Try the web app](https://maelremrem.github.io/StepFaceToDXF/)
+**A fully client-side CAD face exporter for GitHub Pages, in English.**
 
-A static, private, local-first CAD tool using OpenCascade WebAssembly, Three.js and Vite. No files are uploaded to a server.
+**Live:** https://maelremrem.github.io/StepFaceToDXF/
 
-## Import
+Import a 3D model, click one or more coplanar faces, preview the flattened 2D contours, and download vector files at 1:1 scale in millimeters. All file processing runs locally in your browser.
 
-- STEP: `.step`, `.stp`
-- IGES: `.iges`, `.igs`
-- OpenCascade BREP: `.brep`, `.brp`
+## Import formats
 
-Import options: triangulation linear deviation (mm), angular deviation (degrees), and planar face tolerance (mm). Changing tessellation options requires reloading the file. STEP/IGES output is normalized to millimeters. **BREP source coordinates are assumed to be in mm** because that format does not carry reliable unit metadata.
+| Format | Extensions | Notes |
+| --- | --- | --- |
+| STEP | .step, .stp | OpenCascade importer; unit conversion to mm |
+| IGES | .iges, .igs | OpenCascade importer; unit conversion to mm |
+| OpenCascade BREP | .brep, .brp | No reliable unit metadata; choose source units |
+| STL | .stl | Binary / ASCII meshes; choose source units |
+| Wavefront OBJ | .obj | Triangulated mesh regions; choose source units |
+| PLY | .ply | Polygonal meshes; choose source units |
 
-STL/OBJ/PLY support is planned for v0.4: those formats are meshes, with different surface-selection behavior.
+CAD imports allow configurable linear tessellation deviation and angular deviation. The app finds **connected planar regions** in triangulated mesh files, with user-defined planarity and normal tolerances. Maximum upload size is 100 MB. Mesh region extraction currently caps each individual mesh at 300,000 triangles to bound browser resource use.
 
-## Export
+## Export formats
 
-Select a planar face in 3D and export:
+- **DXF:** closed LWPOLYLINE, LINE entities, or optional approximate fitted CIRCLE and ARC entities; configurable layer; `$INSUNITS=4` (millimeters).
+- **SVG:** physical width/height in mm, editable stroke width and page margin.
+- **PDF:** one-page, plain vector geometry, scaled in real millimeters.
+- **EPS:** scalable PostScript vector paths.
+- **HPGL (.plt):** plotter pen commands using 40 plotter units per millimeter.
+- **JSON:** structured 2D contour coordinates and parameters.
+- **CSV:** XY coordinates and contour/point IDs.
 
-- **DXF** — closed LWPOLYLINE or independent LINE entities, with custom layer; `$INSUNITS = 4` (mm).
-- **SVG** — mm size, configurable stroke width and margin.
-- **JSON** — closed loops with XY point coordinates in mm.
-- **CSV** — loop/point IDs and XY coordinates in mm (first point repeated to close each loop).
+Settings: rotation (0/90/180/270 degrees), XY mirror, scale, offsets in mm, optional polygon simplification, remove holes, SVG/PDF margin and stroke, DXF layers, and curve-fit tolerance. There are built-in presets and editable custom profiles saved in the local browser.
 
-Transform options: 0/90/180/270 rotation, mirror X/Y, scale factor, XY offsets in mm, hole inclusion, optional extra polyline simplification. Default is **1:1 in mm**. The preview reflects the options. The original STEP geometry is not modified.
+Select multiple faces using **Shift+click** or enable Multi-select. The app can merge adjacent coplanar faces into a single file, or export multiple selected faces independently into a ZIP containing selected export formats.
 
-**Precision:** contours are obtained from the **triangulated** faces. Curved CAD edges become segments rather than native CIRCLE/ARC geometry. Input tessellation deviation is a target, **not a metrology tolerance**. Inspect the file in a CAD/CAM tool before machining.
+## Accuracy and limitations
+
+**The current importer exposes triangulated geometry, not exact OpenCascade B-Rep edges.** DXF circles and arcs can be *fitted* from polygon samples, but fitted curves and exported segments are **not exact CAD-native geometry**. Curve fitting is optional, limited by the selected tolerance, and falls back to line segments. The tessellation deviation is a meshing target, not a guaranteed manufacturing tolerance. Always check dimensions in a CAD/CAM tool before fabrication.
+
+STL/OBJ/PLY models do not reliably specify physical units, so select the correct source units before import. Highly curved meshes create many small planar regions; open, non-manifold or imperfect meshes may not yield closed 2D contours.
+
+The PDF and EPS implementations export plain vector paths, not a complete publishing/layout engine. HPGL is intended for conventional 40-unit/mm devices; verify your plotter's dialect.
 
 ## Development
 
 ```sh
 npm install
-npm run dev
 npm test
+npm run dev
 npm run build
 ```
 
-Enable Settings → Pages → Source: GitHub Actions. Pushing to `main` builds and deploys automatically.
+GitHub Pages is published by GitHub Actions on commits to `main`; pull requests run unit tests and the production build without deploying.
 
+## Privacy
+
+There is no backend, tracking endpoint, account system, or model upload. Imported files remain in your browser and custom presets are stored in the browser's own local storage.
+
+For an explanation of the exact-geometry limitation, see [Accuracy roadmap](docs/ACCURACY.md).
