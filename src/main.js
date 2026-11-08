@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {extractContours} from './geometry.js';
-import {buildSvg,buildDxf} from './export.js';
+import {buildSvg,buildDxf,buildCsv,buildJson,transformContours} from './export.js';
 import './style.css';
 
 const el=id=>document.getElementById(id);
@@ -20,7 +20,7 @@ controls.enableDamping=true;
 const model=new THREE.Group();scene.add(model);
 const highlight=new THREE.MeshStandardMaterial({color:0x75dba7,roughness:.7,side:THREE.DoubleSide,emissive:0x22563d});
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
-let objects=[],faces=[],selected=null,contours=null,outline=null,worker=null,seq=0,busy=false,name='part';
+let objects=[],faces=[],selected=null,contours=null,outline=null,worker=null,seq=0,busy=false,name='part',lastFile=null;
 
 function status(message,error=false){
   el('status').textContent=message;
@@ -37,7 +37,7 @@ function clearSelection(){
   for(const id of ['widthValue','heightValue','loopCount'])el(id).textContent='—';
   el('preview').textContent='Sélectionnez une face plane pour afficher son contour 2D.';
   el('previewCaption').textContent='Aucun contour sélectionné';
-  el('dxfButton').disabled=true;el('svgButton').disabled=true;
+  for(const id of ['dxfButton','svgButton','jsonButton','csvButton'])el(id).disabled=true;
   if(outline){
     model.remove(outline);outline.geometry.dispose();outline.material.dispose();outline=null;
   }
@@ -56,6 +56,8 @@ function reset(){
   setBusy(false);clearModel();
   el('fileInput').value='';
   el('fileInfo').hidden=true;
+  el('reloadButton').disabled=true;
+  lastFile=null;
   status('Prêt');
 }
 function color(rgb){
@@ -107,13 +109,37 @@ function fit(){
   camera.far=Math.max(radius*1000,10000);
   camera.lookAt(center);camera.updateProjectionMatrix();controls.update();
 }
+function readExportOptions(){
+  const num=id=>Number(el(id).value);
+  return {
+    rotation:num('rotation'),scale:num('scale'),offsetX:num('offsetX'),offsetY:num('offsetY'),
+    margin:num('margin'),stroke:num('stroke'),simplify:num('simplify'),
+    flipX:el('flipX').checked,flipY:el('flipY').checked,
+    includeHoles:el('includeHoles').checked,
+    dxfMode:el('dxfMode').value,layer:el('layer').value
+  };
+}
+function readImportOptions(){
+  const linearDeflection=Number(el('linearDeflection').value);
+  const degrees=Number(el('angularDeflection').value);
+  const planarity=Number(el('planarityTolerance').value);
+  if(!Number.isFinite(linearDeflection)||linearDeflection<0.001||linearDeflection>5)
+    throw Error('Précision de maillage : 0,001–5 mm.');
+  if(!Number.isFinite(degrees)||degrees<1||degrees>90)
+    throw Error('Angle max : 1–90°.');
+  if(!Number.isFinite(planarity)||planarity<0.001||planarity>5)
+    throw Error('Tolérance de planéité : 0,001–5 mm.');
+  return {linearDeflection,angularDeflection:degrees*Math.PI/180,planarity};
+}
 function preview(face){
   const ns='http://www.w3.org/2000/svg';
   const svg=document.createElementNS(ns,'svg');
   svg.setAttribute('viewBox','-4 -4 '+(face.width+8)+' '+(face.height+8));
+  const all=face.loops.flat();
+  const minX=Math.min(...all.map(p=>p[0])),minY=Math.min(...all.map(p=>p[1]));
   for(const loop of face.loops){
     const path=document.createElementNS(ns,'path');
-    path.setAttribute('d',loop.map(([x,y],i)=>(i?'L':'M')+x+','+(face.height-y)).join(' ')+' Z');
+    path.setAttribute('d',loop.map(([x,y],i)=>(i?'L':'M')+(x-minX)+','+(face.height-(y-minY))).join(' ')+' Z');
     path.setAttribute('fill','none');path.setAttribute('stroke','#76e5ae');
     path.setAttribute('stroke-width','1.5');path.setAttribute('vector-effect','non-scaling-stroke');
     svg.append(path);
@@ -121,6 +147,12 @@ function preview(face){
   el('preview').replaceChildren(svg);
   el('previewCaption').textContent=face.width.toFixed(2)+' × '+face.height.toFixed(2)+' mm · '+face.loops.length+' contours';
 }
+function updatePreview(){
+  if(!contours)return;
+  try {preview(transformContours(contours,readExportOptions()));}
+  catch(err){el('preview').textContent=err.message;status(err.message,true);}
+}
+
 function highlightEdges(loops){
   const coords=[];
   for(const loop of loops)for(let i=0;i<loop.length;i++)coords.push(...loop[i],...loop[(i+1)%loop.length]);
@@ -133,12 +165,13 @@ function select(face){
   clearSelection();selected=face;
   face.object.material[face.index]=highlight;
   try{
-    contours=extractContours(face.positions,face.triangles);
+    const tolerance=Number(el('planarityTolerance').value);
+    contours=extractContours(face.positions,face.triangles,tolerance);
     el('widthValue').textContent=contours.width.toFixed(2)+' mm';
     el('heightValue').textContent=contours.height.toFixed(2)+' mm';
     el('loopCount').textContent=contours.loops.length;
-    el('dxfButton').disabled=false;el('svgButton').disabled=false;
-    preview(contours);highlightEdges(contours.loops3D);
+    for(const id of ['dxfButton','svgButton','jsonButton','csvButton'])el(id).disabled=false;
+    updatePreview();highlightEdges(contours.loops3D);
     status('Face plane prête pour export');
   }catch(err){
     el('preview').textContent=err.message;el('previewCaption').textContent='Export indisponible';
@@ -151,14 +184,20 @@ function download(ext,text,mime){
   a.href=url;a.download=name+'_face_'+(selected.meshIndex+1)+'-'+(selected.index+1)+'.'+ext;
   document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);
 }
-function openStep(file){
+function openCad(file){
   if(!file||busy)return;
-  if(!/\.(step|stp)$/i.test(file.name)){status('Choisissez un .step ou .stp.',true);return;}
+  const ext=file.name.split('.').pop().toLowerCase();
+  const formats={step:'step',stp:'step',iges:'iges',igs:'iges',brep:'brep',brp:'brep'};
+  if(!formats[ext]){status('Formats acceptés : STEP, IGES, BREP.',true);return;}
   if(file.size>100*1024*1024){status('Fichier supérieur à 100 Mo.',true);return;}
+  let importOptions;
+  try{importOptions=readImportOptions();}catch(e){status(e.message,true);return;}
   reset();setBusy(true);
-  name=file.name.replace(/\.(step|stp)$/i,'').replace(/[^a-z0-9_-]/gi,'_').slice(0,80)||'part';
+  lastFile=file;
+  el('reloadButton').disabled=false;
+  name=file.name.replace(/\.(step|stp|igs|iges|brep|brp)$/i,'').replace(/[^a-z0-9_-]/gi,'_').slice(0,80)||'part';
   el('fileName').textContent=file.name;
-  el('fileMeta').textContent=(file.size/1048576).toFixed(2)+' Mo · STEP';
+  el('fileMeta').textContent=(file.size/1048576).toFixed(2)+' Mo · '+formats[ext].toUpperCase()+(formats[ext]==='brep'?' · Unités supposées mm':'');
   el('fileInfo').hidden=false;
   const id=++seq;
   worker=new Worker(import.meta.env.BASE_URL+'occt-worker.js');
@@ -171,30 +210,63 @@ function openStep(file){
     }
   };
   worker.onerror=e=>{if(id===seq){setBusy(false);status(e.message||'Erreur dans le worker',true);}};
-  status('Analyse du STEP par OpenCascade…');
+  status('Analyse du '+formats[ext].toUpperCase()+' par OpenCascade…');
   file.arrayBuffer().then(buffer=>{
     if(id!==seq)return;
     const base=new URL(import.meta.env.BASE_URL,location.href).href;
-    worker.postMessage({type:'load',id,buffer,base},[buffer]);
-  }).catch(err=>{setBusy(false);status(err.message,true);});
+    worker.postMessage({
+      type:'load',id,buffer,base,format:formats[ext],
+      params:{linearDeflection:importOptions.linearDeflection,angularDeflection:importOptions.angularDeflection}
+    },[buffer]);
+  }).catch(err=>{if(id===seq){setBusy(false);status(err.message,true);}});
 }
+function exportFile(ext){
+  if(!contours||!selected)return;
+  try {
+    const options=readExportOptions();
+    const formats={
+      svg:[buildSvg,'image/svg+xml'],
+      dxf:[buildDxf,'application/dxf'],
+      json:[buildJson,'application/json'],
+      csv:[buildCsv,'text/csv;charset=utf-8']
+    };
+    const [convert,mime]=formats[ext];
+    download(ext,convert(contours,options),mime);
+    status('Export '+ext.toUpperCase()+' généré localement.');
+  } catch(err){status(err.message,true);}
+}
+
 el('dropzone').addEventListener('click',()=>{if(!busy)el('fileInput').click();});
 el('dropzone').addEventListener('keydown',e=>{
   if(!busy && (e.key==='Enter'||e.key===' ')){e.preventDefault();el('fileInput').click();}
 });
-el('fileInput').addEventListener('change',e=>openStep(e.target.files[0]));
+el('fileInput').addEventListener('change',e=>openCad(e.target.files[0]));
 ['dragenter','dragover'].forEach(type=>el('dropzone').addEventListener(type,e=>{
   e.preventDefault();el('dropzone').classList.add('dragover');
 }));
 ['dragleave','drop'].forEach(type=>el('dropzone').addEventListener(type,e=>{
   e.preventDefault();el('dropzone').classList.remove('dragover');
 }));
-el('dropzone').addEventListener('drop',e=>openStep(e.dataTransfer.files[0]));
+el('dropzone').addEventListener('drop',e=>openCad(e.dataTransfer.files[0]));
 el('resetButton').addEventListener('click',reset);
 el('fitButton').addEventListener('click',fit);
 el('clearButton').addEventListener('click',()=>{clearSelection();status('Sélection effacée.');});
-el('dxfButton').addEventListener('click',()=>contours&&download('dxf',buildDxf(contours),'application/dxf'));
-el('svgButton').addEventListener('click',()=>contours&&download('svg',buildSvg(contours),'image/svg+xml'));
+for(const kind of ['dxf','svg','json','csv'])
+  el(kind+'Button').addEventListener('click',()=>exportFile(kind));
+el('reloadButton').addEventListener('click',()=>{if(lastFile&&!busy)openCad(lastFile);});
+for(const id of ['rotation','scale','offsetX','offsetY','margin','stroke','simplify',
+  'flipX','flipY','includeHoles','dxfMode','layer'])
+  el(id).addEventListener('change',updatePreview);
+el('planarityTolerance').addEventListener('change',()=>{
+  if(selected){const face=selected;select(face);}
+});
+el('resetExportButton').addEventListener('click',()=>{
+  const defaults={rotation:'0',scale:'1',offsetX:'0',offsetY:'0',margin:'0',
+    stroke:'0.1',simplify:'0',layer:'CUT',dxfMode:'polyline'};
+  for(const [id,value] of Object.entries(defaults))el(id).value=value;
+  el('flipX').checked=false;el('flipY').checked=false;el('includeHoles').checked=true;
+  updatePreview();
+});
 let clickStart=null;
 canvas.addEventListener('pointerdown',e=>clickStart=[e.clientX,e.clientY]);
 canvas.addEventListener('pointerup',e=>{
