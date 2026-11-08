@@ -60,7 +60,14 @@
   </section>
   <aside class="panel right">
     <h2><b>04</b> 2D PREVIEW</h2>
-    <div id="preview" class="preview">Select a planar face or region to preview its contours.</div>
+    <div class="preview-stage">
+      <div id="preview" class="preview">Select a planar face or region to preview its contours.</div>
+      <button id="openPreviewButton" class="preview-expand" type="button" aria-label="Enlarge 2D preview" title="Enlarge 2D preview" disabled>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/>
+        </svg>
+      </button>
+    </div>
     <p id="previewCaption" class="caption">No face selected</p>
     <hr>
     <h2><b>05</b> EXPORT SETTINGS</h2>
@@ -113,6 +120,25 @@
     <footer><a href="https://github.com/maelremrem/StepFaceToDXF" target="_blank" rel="noopener noreferrer">View source on GitHub ↗</a></footer>
   </aside>
 </main>
+<dialog id="previewDialog" class="preview-dialog" aria-labelledby="previewDialogTitle" aria-describedby="previewDialogHint">
+  <div class="preview-dialog-header">
+    <div class="preview-dialog-heading">
+      <strong id="previewDialogTitle">2D PREVIEW</strong>
+      <span id="previewDialogCaption"></span>
+    </div>
+    <div class="preview-dialog-actions">
+      <button type="button" id="previewZoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+      <button type="button" id="previewZoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+      <button type="button" id="previewZoomFit" title="Fit to view">Fit</button>
+      <button type="button" id="previewClose" class="preview-close" title="Close preview" aria-label="Close preview">×</button>
+    </div>
+  </div>
+  <div id="previewDialogViewport" class="preview-dialog-viewport" role="img" aria-label="Enlarged vector preview. Drag to pan; use mouse wheel or controls to zoom."></div>
+  <div class="preview-dialog-footer">
+    <span id="previewDialogHint">Mouse wheel to zoom · Drag to pan · Esc to close</span>
+    <span id="previewZoomValue" class="preview-zoom-value" aria-live="off">100%</span>
+  </div>
+</dialog>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>

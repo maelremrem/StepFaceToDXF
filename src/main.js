@@ -8,6 +8,7 @@ import {combineSelectedFaces} from './combine-faces.js';
 import {groupMeshRegions,unitScale} from './mesh-regions.js';
 import {EXPORTERS,transformContours} from './export.js';
 import {createExportZip} from './zip.js';
+import {createPreviewZoom} from './preview-zoom.js';
 import './style.css';
 
 const el=id=>document.getElementById(id);
@@ -45,6 +46,18 @@ const builtInPresets={
 let objects=[],records=[],selected=new Map(),activeId=null,combined=null,worker=null;
 let seq=0,busy=false,basename='part',lastFile=null;
 const overlays=new Map();
+const previewZoom=createPreviewZoom({
+  source:el('preview'),
+  openButton:el('openPreviewButton'),
+  dialog:el('previewDialog'),
+  viewport:el('previewDialogViewport'),
+  caption:el('previewDialogCaption'),
+  zoomValue:el('previewZoomValue'),
+  zoomInButton:el('previewZoomIn'),
+  zoomOutButton:el('previewZoomOut'),
+  fitButton:el('previewZoomFit'),
+  closeButton:el('previewClose')
+});
 function status(message,error=false){
   el('status').textContent=message;el('status').classList.toggle('error',error);
 }
@@ -128,6 +141,7 @@ function clearSelected(){
   for(const id of ['widthValue','heightValue','loopCount'])el(id).textContent='—';
   el('preview').textContent='Select a planar face or region to preview its contours.';
   el('previewCaption').textContent='No face selected';
+  previewZoom.refresh();
   for(const id of exportIds)el(id+'Button').disabled=true;
   el('zipButton').disabled=true;
 }
@@ -248,13 +262,20 @@ function showPreview(contours){
   }
   el('preview').replaceChildren(svg);
   el('previewCaption').textContent=contours.width.toFixed(2)+' × '+contours.height.toFixed(2)+' mm · '+contours.loops.length+' contours';
+  previewZoom.refresh();
 }
 function updatePreview(){
   const all=[...selected.values()];
   el('selectedCount').textContent=String(all.length);
   el('zipButton').disabled=!all.length;
   combined=null;
-  if(!all.length)return;
+  if(!all.length){
+    el('preview').textContent='Select a planar face or region to preview its contours.';
+    el('previewCaption').textContent='No face selected';
+    previewZoom.refresh();
+    for(const id of exportIds)el(id+'Button').disabled=true;
+    return;
+  }
   try{
     const choice=el('mergeFaces').checked&&all.length>1?combineSelectedFaces(all.map(x=>x.face),readImportOptions().planarity):
       (selected.get(activeId)||all[all.length-1]).contours;
@@ -267,6 +288,7 @@ function updatePreview(){
   }catch(err){
     el('preview').textContent=err.message;
     el('previewCaption').textContent='Use ZIP to export individual faces.';
+    previewZoom.refresh();
   }
   for(const id of exportIds)el(id+'Button').disabled=!combined;
 }
