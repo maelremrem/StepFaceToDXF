@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101820">
+  <meta name="description" content="Exporter une face plane STEP en SVG ou DXF en millimètres.">
+  <title>STEP / FACE / DXF</title>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">▣</span><div><strong>STEP <em>/</em> FACE <em>/</em> DXF</strong><small>CONVERTISSEUR CAO LOCAL</small></div></div>
+  <div class="privacy">● 100 % dans le navigateur</div><div class="version">BETA 0.2</div>
+</header>
+<main>
+  <aside class="panel left">
+    <h2><b>01</b> MODÈLE SOURCE</h2>
+    <div id="dropzone" role="button" tabindex="0" aria-label="Importer un STEP" class="dropzone">
+      <span class="upl">↥</span><strong>Importer un STEP</strong><span>Glisser-déposer ou parcourir</span><small>.STEP · .STP</small>
+    </div>
+    <input id="fileInput" type="file" accept=".step,.stp" hidden>
+    <div id="fileInfo" class="fileinfo" hidden><div><strong id="fileName"></strong><small id="fileMeta"></small></div><button id="resetButton" aria-label="Retirer le fichier">×</button></div>
+    <hr><h2><b>02</b> SÉLECTION</h2>
+    <p><kbd>Clic</kbd> Sélectionner une face plane</p>
+    <p><kbd>Glisser</kbd> Tourner la pièce</p>
+    <p><kbd>Molette</kbd> Zoomer</p>
+    <div class="hint">Seules les faces planes sont exportables. Les trous sont inclus.</div>
+    <hr><h2><b>03</b> FACE SÉLECTIONNÉE</h2>
+    <div class="stats"><div><small>LARGEUR</small><strong id="widthValue">—</strong></div><div><small>HAUTEUR</small><strong id="heightValue">—</strong></div></div>
+    <p class="line"><span>Contours</span><strong id="loopCount">—</strong></p>
+    <p class="footnote">Contours calculés sur la triangulation avec une déviation cible de 0,05 mm, non garantie.</p>
+  </aside>
+  <section class="viewer">
+    <div class="viewerbar"><span><i>●</i> VUE 3D / Perspective</span><div><button id="fitButton">⌗ Recentrer</button><button id="clearButton">✕ Effacer</button></div></div>
+    <div id="viewport" class="viewport"><div id="emptyState" class="empty"><div>◇</div><strong>Votre pièce apparaîtra ici</strong><span>Importez un fichier STEP pour commencer</span></div><div id="status" class="status" role="status">Prêt</div></div>
+    <div class="viewerbottom"><span>UNITÉS <strong>MM</strong></span><span>ÉCHELLE <strong>1:1</strong></span><span>CALCUL <strong>LOCAL</strong></span></div>
+  </section>
+  <aside class="panel right">
+    <h2><b>04</b> PRÉVISUALISATION 2D</h2>
+    <div id="preview" class="preview">Sélectionnez une face plane pour afficher son contour 2D.</div>
+    <p id="previewCaption" class="caption">Aucun contour sélectionné</p>
+    <hr><h2><b>05</b> EXPORT VECTORIEL</h2>
+    <p class="hint">Échelle 1:1 · Millimètres · Perçages inclus</p>
+    <button id="dxfButton" class="primary" disabled>↓ Exporter DXF</button>
+    <button id="svgButton" class="secondary" disabled>↓ Exporter SVG</button>
+    <div class="warning"><strong>Export maillé (bêta)</strong> Cercles et arcs sont convertis en polylignes. Vérifiez les cotes avant une découpe de précision.</div>
+    <footer><a href="https://github.com/maelremrem/StepFaceToDXF" target="_blank" rel="noopener noreferrer">GitHub / Open source ↗</a></footer>
+  </aside>
+</main>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
