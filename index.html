@@ -4,22 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#101820">
-  <meta name="description" content="Exporter une face plane STEP en SVG ou DXF en millimètres.">
+  <meta name="description" content="Exporter les faces planes STEP, IGES ou BREP en DXF, SVG, JSON ou CSV en millimètres.">
   <title>STEP / FACE / DXF</title>
 </head>
 <body>
 <header>
   <div class="brand"><span class="logo">▣</span><div><strong>STEP <em>/</em> FACE <em>/</em> DXF</strong><small>CONVERTISSEUR CAO LOCAL</small></div></div>
-  <div class="privacy">● 100 % dans le navigateur</div><div class="version">BETA 0.2</div>
+  <div class="privacy">● 100 % dans le navigateur</div><div class="version">BETA 0.3</div>
 </header>
 <main>
   <aside class="panel left">
     <h2><b>01</b> MODÈLE SOURCE</h2>
-    <div id="dropzone" role="button" tabindex="0" aria-label="Importer un STEP" class="dropzone">
-      <span class="upl">↥</span><strong>Importer un STEP</strong><span>Glisser-déposer ou parcourir</span><small>.STEP · .STP</small>
+    <div id="dropzone" role="button" tabindex="0" aria-label="Importer un fichier CAO" class="dropzone">
+      <span class="upl">↥</span><strong>Importer une pièce CAO</strong><span>Glisser-déposer ou parcourir</span><small>.STEP · .STP · .IGS · .IGES · .BREP · .BRP</small>
     </div>
-    <input id="fileInput" type="file" accept=".step,.stp" hidden>
+    <input id="fileInput" type="file" accept=".step,.stp,.igs,.iges,.brep,.brp" hidden>
     <div id="fileInfo" class="fileinfo" hidden><div><strong id="fileName"></strong><small id="fileMeta"></small></div><button id="resetButton" aria-label="Retirer le fichier">×</button></div>
+    <details class="settings-group">
+      <summary>⚙ Paramètres d'import</summary>
+      <div class="field-grid">
+        <label>Précision du maillage (mm)<input id="linearDeflection" type="number" value="0.05" min="0.001" max="5" step="0.01"></label>
+        <label>Angle max. (°)<input id="angularDeflection" type="number" value="7" min="1" max="90" step="1"></label>
+        <label>Tolérance planéité (mm)<input id="planarityTolerance" type="number" value="0.02" min="0.001" max="5" step="0.01"></label>
+      </div>
+      <button id="reloadButton" class="subtle" disabled>↻ Recharger avec ces réglages</button>
+      <p class="footnote">STEP/IGES : coordonnées converties en mm. BREP : unités source supposées être en mm.</p>
+    </details>
     <hr><h2><b>02</b> SÉLECTION</h2>
     <p><kbd>Clic</kbd> Sélectionner une face plane</p>
     <p><kbd>Glisser</kbd> Tourner la pièce</p>
@@ -28,11 +38,11 @@
     <hr><h2><b>03</b> FACE SÉLECTIONNÉE</h2>
     <div class="stats"><div><small>LARGEUR</small><strong id="widthValue">—</strong></div><div><small>HAUTEUR</small><strong id="heightValue">—</strong></div></div>
     <p class="line"><span>Contours</span><strong id="loopCount">—</strong></p>
-    <p class="footnote">Contours calculés sur la triangulation avec une déviation cible de 0,05 mm, non garantie.</p>
+    <p class="footnote">Contours calculés sur le maillage. La déviation sélectionnée est une cible, pas une précision garantie.</p>
   </aside>
   <section class="viewer">
     <div class="viewerbar"><span><i>●</i> VUE 3D / Perspective</span><div><button id="fitButton">⌗ Recentrer</button><button id="clearButton">✕ Effacer</button></div></div>
-    <div id="viewport" class="viewport"><div id="emptyState" class="empty"><div>◇</div><strong>Votre pièce apparaîtra ici</strong><span>Importez un fichier STEP pour commencer</span></div><div id="status" class="status" role="status">Prêt</div></div>
+    <div id="viewport" class="viewport"><div id="emptyState" class="empty"><div>◇</div><strong>Votre pièce apparaîtra ici</strong><span>Importez un fichier CAO pour commencer</span></div><div id="status" class="status" role="status">Prêt</div></div>
     <div class="viewerbottom"><span>UNITÉS <strong>MM</strong></span><span>ÉCHELLE <strong>1:1</strong></span><span>CALCUL <strong>LOCAL</strong></span></div>
   </section>
   <aside class="panel right">
@@ -40,9 +50,28 @@
     <div id="preview" class="preview">Sélectionnez une face plane pour afficher son contour 2D.</div>
     <p id="previewCaption" class="caption">Aucun contour sélectionné</p>
     <hr><h2><b>05</b> EXPORT VECTORIEL</h2>
-    <p class="hint">Échelle 1:1 · Millimètres · Perçages inclus</p>
+    <p class="hint">Millimètres · À l'échelle 1:1 par défaut</p>
+    <details class="settings-group" open>
+      <summary>⚙ Paramètres d'export</summary>
+      <div class="field-grid">
+        <label>Rotation<select id="rotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label>
+        <label>Échelle<input id="scale" type="number" value="1" min="0.00001" max="10000" step="0.1"></label>
+        <label>Décalage X (mm)<input id="offsetX" type="number" value="0" step="1"></label>
+        <label>Décalage Y (mm)<input id="offsetY" type="number" value="0" step="1"></label>
+        <label>Marge SVG (mm)<input id="margin" type="number" value="0" min="0" step="1"></label>
+        <label>Trait SVG (mm)<input id="stroke" type="number" value="0.1" min="0.001" max="10" step="0.05"></label>
+        <label>Simplifier (mm)<input id="simplify" type="number" value="0" min="0" max="10" step="0.01"></label>
+        <label>Calque DXF<input id="layer" type="text" value="CUT" maxlength="64"></label>
+        <label>Mode DXF<select id="dxfMode"><option value="polyline">Polylignes</option><option value="lines">Lignes</option></select></label>
+      </div>
+      <label class="checkline"><input type="checkbox" id="includeHoles" checked> Conserver les trous</label>
+      <label class="checkline"><input type="checkbox" id="flipX"> Miroir horizontal</label>
+      <label class="checkline"><input type="checkbox" id="flipY"> Miroir vertical</label>
+      <button id="resetExportButton" class="subtle">↶ Paramètres par défaut</button>
+    </details>
     <button id="dxfButton" class="primary" disabled>↓ Exporter DXF</button>
     <button id="svgButton" class="secondary" disabled>↓ Exporter SVG</button>
+    <div class="export-row"><button id="jsonButton" class="secondary" disabled>↓ JSON</button><button id="csvButton" class="secondary" disabled>↓ CSV</button></div>
     <div class="warning"><strong>Export maillé (bêta)</strong> Cercles et arcs sont convertis en polylignes. Vérifiez les cotes avant une découpe de précision.</div>
     <footer><a href="https://github.com/maelremrem/StepFaceToDXF" target="_blank" rel="noopener noreferrer">GitHub / Open source ↗</a></footer>
   </aside>
