@@ -123,31 +123,64 @@ export function buildSvg(contours,options={}) {
 }
 export function buildDxf(contours,options={}) {
   const data=transformContours(contours,options),o=data.options;
-  const lines=['0','SECTION','2','HEADER','9','$ACADVER','1','AC1015','9','$INSUNITS','70','4','0','ENDSEC','0','SECTION','2','ENTITIES'];
+  const layerNames=o.layer==='0'?['0']:['0',o.layer];
+  const lines=[
+    '0','SECTION','2','HEADER',
+    '9','$ACADVER','1','AC1015',
+    '9','$INSUNITS','70','4',
+    '0','ENDSEC',
+    '0','SECTION','2','TABLES',
+    '0','TABLE','2','LTYPE','5','10','100','AcDbSymbolTable','70','1',
+    '0','LTYPE','5','11','330','10',
+    '100','AcDbSymbolTableRecord','100','AcDbLinetypeTableRecord',
+    '2','CONTINUOUS','70','0','3','Solid line','72','65','73','0','40','0',
+    '0','ENDTAB',
+    '0','TABLE','2','LAYER','5','20','100','AcDbSymbolTable','70',String(layerNames.length)
+  ];
+  for(const [index,name] of layerNames.entries()){
+    lines.push(
+      '0','LAYER','5',(0x21+index).toString(16).toUpperCase(),'330','20',
+      '100','AcDbSymbolTableRecord','100','AcDbLayerTableRecord',
+      '2',name,'70','0','62','7','6','CONTINUOUS'
+    );
+  }
+  lines.push('0','ENDTAB','0','ENDSEC','0','SECTION','2','ENTITIES');
+  let nextHandle=0x100;
+  const entity=(type,subclass)=>{
+    lines.push(
+      '0',type,'5',(nextHandle++).toString(16).toUpperCase(),
+      '100','AcDbEntity','8',o.layer,'100',subclass
+    );
+  };
   for(const {loop,circle,segments} of paths(data)){
     if(circle){
-      lines.push('0','CIRCLE','8',o.layer,'10',fmt(circle.cx),'20',fmt(circle.cy),'30','0','40',fmt(circle.radius));
+      entity('CIRCLE','AcDbCircle');
+      lines.push('10',fmt(circle.cx),'20',fmt(circle.cy),'30','0','40',fmt(circle.radius));
     }else if(segments){
       for(const segment of segments){
         if(segment.type==='arc'){
           let start=degrees(Math.atan2(segment.start[1]-segment.cy,segment.start[0]-segment.cx));
           let end=degrees(Math.atan2(segment.end[1]-segment.cy,segment.end[0]-segment.cx));
           if(segment.sweep<0)[start,end]=[end,start];
-          lines.push('0','ARC','8',o.layer,'10',fmt(segment.cx),'20',fmt(segment.cy),'30','0',
-            '40',fmt(segment.radius),'50',fmt(start),'51',fmt(end));
+          entity('ARC','AcDbCircle');
+          lines.push('10',fmt(segment.cx),'20',fmt(segment.cy),'30','0',
+            '40',fmt(segment.radius),'100','AcDbArc','50',fmt(start),'51',fmt(end));
         }else {
           const a=segment.start,b=segment.end;
-          lines.push('0','LINE','8',o.layer,'10',fmt(a[0]),'20',fmt(a[1]),'30','0',
+          entity('LINE','AcDbLine');
+          lines.push('10',fmt(a[0]),'20',fmt(a[1]),'30','0',
             '11',fmt(b[0]),'21',fmt(b[1]),'31','0');
         }
       }
     }else if(o.dxfMode==='lines'){
       for(let i=0;i<loop.length;i++){
         const a=loop[i],b=loop[(i+1)%loop.length];
-        lines.push('0','LINE','8',o.layer,'10',fmt(a[0]),'20',fmt(a[1]),'30','0','11',fmt(b[0]),'21',fmt(b[1]),'31','0');
+        entity('LINE','AcDbLine');
+        lines.push('10',fmt(a[0]),'20',fmt(a[1]),'30','0','11',fmt(b[0]),'21',fmt(b[1]),'31','0');
       }
     }else{
-      lines.push('0','LWPOLYLINE','8',o.layer,'90',String(loop.length),'70','1');
+      entity('LWPOLYLINE','AcDbPolyline');
+      lines.push('90',String(loop.length),'70','1');
       for(const [x,y] of loop)lines.push('10',fmt(x),'20',fmt(y));
     }
   }
