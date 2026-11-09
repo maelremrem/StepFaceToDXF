@@ -6,6 +6,8 @@
 
 Import a 3D model, click one or more coplanar faces, preview the flattened 2D contours, and download vector files at 1:1 scale in millimeters. All file processing runs locally in your browser.
 
+CAD imports show a loading dialog with processing stages and an optional Cancel action. No artificial percentage is displayed: the STEP parser does not expose exact progress. Cancelling terminates the active import worker.
+
 ## Import formats
 
 | Format | Extensions | Notes |

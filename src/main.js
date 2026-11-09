@@ -9,6 +9,7 @@ import {groupMeshRegions,unitScale} from './mesh-regions.js';
 import {EXPORTERS,transformContours} from './export.js';
 import {createExportZip} from './zip.js';
 import {createPreviewZoom} from './preview-zoom.js';
+import {createImportDialog} from './import-dialog.js';
 import './style.css';
 
 const el=id=>document.getElementById(id);
@@ -46,6 +47,17 @@ const builtInPresets={
 let objects=[],records=[],selected=new Map(),activeId=null,combined=null,worker=null;
 let seq=0,busy=false,basename='part',lastFile=null;
 const overlays=new Map();
+const importDialog=createImportDialog({
+  dialog:el('importDialog'),
+  filename:el('importDialogFilename'),
+  phase:el('importDialogPhase'),
+  cancelButton:el('cancelImportButton'),
+  onCancel:()=>{
+    if(!busy)return;
+    reset();
+    status('Import cancelled.');
+  }
+});
 const previewZoom=createPreviewZoom({
   source:el('preview'),
   openButton:el('openPreviewButton'),
@@ -156,6 +168,7 @@ function clearModel(){
   el('emptyState').hidden=false;
 }
 function reset(){
+  importDialog.close();
   seq++;
   if(worker){worker.terminate();worker=null;}
   setBusy(false);clearModel();
@@ -364,25 +377,49 @@ async function openCad(file){
   el('fileMeta').textContent=(file.size/1048576).toFixed(2)+' MB · '+kind.toUpperCase();
   el('fileInfo').hidden=false;
   const id=++seq;
+  importDialog.begin(file.name,kind);
   try{
     status('Parsing '+kind.toUpperCase()+' locally…');
     if(['step','iges','brep'].includes(kind)){
       const buffer=await file.arrayBuffer();
       if(id!==seq)return;
       worker=new Worker(import.meta.env.BASE_URL+'occt-worker.js');
-      worker.onmessage=({data})=>{
+      worker.onmessage=async ({data})=>{
         if(data.id!==id)return;
-        if(data.type==='error'){setBusy(false);status(data.message,true);return;}
+        if(data.type==='progress'){
+          importDialog.update(data.message);
+          return;
+        }
+        if(data.type==='error'){
+          importDialog.close();
+          setBusy(false);
+          status(data.message,true);
+          return;
+        }
         if(data.type==='result'){
+          importDialog.update('Preparing the 3D view…');
+          await new Promise(resolve=>requestAnimationFrame(resolve));
+          if(id!==seq)return;
           try{makeCadModel(data.result,kind==='brep'?unitScale(opts.unit):1);}
           catch(err){status(err.message,true);}
-          setBusy(false);
+          finally{
+            importDialog.close();
+            setBusy(false);
+          }
         }
       };
-      worker.onerror=event=>{if(id===seq){setBusy(false);status(event.message||'CAD worker failed.',true);}};
+      worker.onerror=event=>{
+        if(id!==seq)return;
+        importDialog.close();
+        setBusy(false);
+        status(event.message||'CAD worker failed.',true);
+      };
       const base=new URL(import.meta.env.BASE_URL,location.href).href;
       worker.postMessage({type:'load',id,buffer,base,format:kind,params:opts},[buffer]);
     }else{
+      importDialog.update('Preparing mesh geometry…');
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+      if(id!==seq)return;
       let geometries=[];
       if(kind==='stl'){
         geometries=[new STLLoader().parse(await file.arrayBuffer())];
@@ -394,9 +431,16 @@ async function openCad(file){
       }
       if(id!==seq){geometries.forEach(g=>g.dispose());return;}
       makeMeshModel(geometries,opts);
+      importDialog.close();
       setBusy(false);
     }
-  }catch(err){if(id===seq){setBusy(false);status(err.message,true);}}
+  }catch(err){
+    if(id===seq){
+      importDialog.close();
+      setBusy(false);
+      status(err.message,true);
+    }
+  }
 }
 el('dropzone').addEventListener('click',()=>{if(!busy)el('fileInput').click();});
 el('dropzone').addEventListener('keydown',event=>{
