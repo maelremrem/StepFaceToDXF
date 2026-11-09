@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Accessible local-import loading dialog, processing status and cancellation for CAD imports
+
 ## 1.0.0 Beta
 - English-only user interface, error messages and documentation
 - STL, OBJ and PLY local imports alongside STEP, IGES and BREP

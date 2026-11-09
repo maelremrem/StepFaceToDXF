@@ -372,3 +372,67 @@ button:disabled{opacity:.48}
   .preview-dialog-actions button{min-width:30px;height:32px;padding:0 7px}
   .preview-dialog-actions .preview-close{margin-left:2px}
 }
+
+
+/* Local CAD import progress dialog */
+.import-dialog{
+  box-sizing:border-box;
+  width:min(430px,calc(100vw - 28px));
+  max-width:none;
+  padding:0;
+  overflow:hidden;
+  border:1px solid #426773;
+  border-radius:13px;
+  background:linear-gradient(160deg,#1c2d39,#14222d);
+  color:#dce9e9;
+  box-shadow:0 28px 100px #000b;
+}
+.import-dialog::backdrop{background:rgba(3,10,17,.76);backdrop-filter:blur(5px)}
+.import-dialog-content{
+  display:flex;flex-direction:column;align-items:center;
+  padding:34px 30px 27px;text-align:center;gap:0;
+}
+.import-spinner{width:70px;height:70px;color:#81e3b3;margin:0 0 16px}
+.import-spinner svg{width:100%;height:100%;animation:import-spin 1.2s linear infinite}
+@keyframes import-spin{to{transform:rotate(360deg)}}
+.import-eyebrow{
+  color:#81e3b3;font:700 10px/1.6 ui-monospace,monospace;
+  letter-spacing:1.8px;
+}
+.import-dialog h2{
+  color:#ecf7f3;font:700 19px/1.35 system-ui,sans-serif;
+  letter-spacing:0;margin:7px 0 13px;
+}
+.import-filename{
+  max-width:100%;margin:0 0 11px;
+  color:#bcced5;font:600 12px/1.5 ui-monospace,monospace;
+  overflow-wrap:anywhere;
+}
+.import-phase{
+  min-height:19px;margin:0 0 18px;
+  color:#96b7c0;font:12px/1.55 system-ui,sans-serif;
+}
+.import-progress-track{
+  width:100%;height:5px;border-radius:999px;
+  overflow:hidden;background:#344856;
+}
+.import-progress-motion{
+  width:38%;height:100%;border-radius:inherit;
+  background:linear-gradient(90deg,#4baf90,#9aebbd);
+  animation:import-sweep 1.5s ease-in-out infinite alternate;
+}
+@keyframes import-sweep{from{transform:translateX(-98%)}to{transform:translateX(265%)}}
+.import-privacy{
+  margin:18px 0 17px;
+  color:#8da3ad;font:11px/1.5 system-ui,sans-serif;
+}
+.import-cancel{
+  min-height:38px;padding:9px 22px;
+  background:#263d46;border:1px solid #527380;border-radius:6px;
+  color:#d0e5de;font:600 12px system-ui,sans-serif;
+}
+.import-cancel:hover{background:#34535b;border-color:#84ccb0}
+.import-cancel:focus-visible{outline:2px solid #94ecc0;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){
+  .import-spinner svg,.import-progress-motion{animation:none}
+}
