@@ -33,7 +33,7 @@ test('real file percentage from measured bytes, no fabricated geometry percentag
   u.api.fileProgress(524288,1048576);
   assert.equal(u.percent.textContent,'50%');
   assert.equal(u.attributes.get('aria-valuenow'),'50');
-  assert.match(u.detail.textContent,/0.5 MB \/ 1.0 MB/);
+  assert.match(u.detail.textContent,/512.0 KB \/ 1.0 MB/);
   u.elapse(2340);
   assert.equal(u.elapsed.textContent,'Elapsed 2.3s');
   u.api.stage('engine','Loading OpenCascade');
