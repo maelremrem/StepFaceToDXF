@@ -122,18 +122,31 @@
 </main>
 <dialog id="importDialog" class="import-dialog" aria-labelledby="importDialogTitle" aria-describedby="importDialogPhase">
   <div class="import-dialog-content">
-    <div class="import-spinner" aria-hidden="true">
-      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <circle cx="24" cy="24" r="17" opacity=".17"/>
-        <path d="M24 7a17 17 0 0 1 17 17"/>
-      </svg>
+    <div class="import-head">
+      <div class="import-head-mark" aria-hidden="true">▣</div>
+      <div>
+        <span class="import-eyebrow">LOCAL CAD PROCESSING</span>
+        <h2 id="importDialogTitle">Importing model</h2>
+      </div>
     </div>
-    <span class="import-eyebrow">LOCAL CAD PROCESSING</span>
-    <h2 id="importDialogTitle">Importing your model</h2>
     <p id="importDialogFilename" class="import-filename"></p>
-    <p id="importDialogPhase" class="import-phase" role="status" aria-live="polite">Reading file…</p>
-    <div class="import-progress-track" aria-hidden="true"><div class="import-progress-motion"></div></div>
-    <p class="import-privacy">Your file stays in your browser. No upload required.</p>
+    <ol class="import-steps" aria-label="Import stages">
+      <li data-import-step="read"><span class="import-step-icon" aria-hidden="true">1</span><span class="import-step-name">Read file</span><span class="import-step-state">Waiting</span></li>
+      <li data-import-step="engine"><span class="import-step-icon" aria-hidden="true">2</span><span class="import-step-name">Initialize CAD engine</span><span class="import-step-state">Waiting</span></li>
+      <li data-import-step="geometry"><span class="import-step-icon" aria-hidden="true">3</span><span class="import-step-name">Process geometry</span><span class="import-step-state">Waiting</span></li>
+      <li data-import-step="render"><span class="import-step-icon" aria-hidden="true">4</span><span class="import-step-name">Build 3D view</span><span class="import-step-state">Waiting</span></li>
+    </ol>
+    <div class="import-phase-head"><span id="importDialogPhase" class="import-phase" role="status" aria-live="polite">Reading file…</span><strong id="importDialogPercent" class="import-percent">0%</strong></div>
+    <div id="importDialogBar" class="import-progress-track" role="progressbar" aria-label="Current import stage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="importDialogFill" class="import-progress-motion"></div>
+    </div>
+    <p id="importDialogDetail" class="import-detail">0 B / 0 B</p>
+    <div class="import-meta">
+      <span id="importDialogElapsed">Elapsed 0.0s</span>
+      <span id="importDialogStepTime">This step 0.0s</span>
+    </div>
+    <p id="importDialogStats" class="import-stats" hidden></p>
+    <p class="import-privacy">Processing locally — your file never leaves your device.</p>
     <button id="cancelImportButton" class="import-cancel" type="button">Cancel import</button>
   </div>
 </dialog>

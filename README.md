@@ -6,7 +6,7 @@
 
 Import a 3D model, click one or more coplanar faces, preview the flattened 2D contours, and download vector files at 1:1 scale in millimeters. All file processing runs locally in your browser.
 
-CAD imports show a loading dialog with processing stages and an optional Cancel action. No artificial percentage is displayed: the STEP parser does not expose exact progress. Cancelling terminates the active import worker.
+CAD imports show real per-stage feedback: bytes read (with measured percentage), CAD engine initialization, geometry processing with a live elapsed timer, and mesh-by-mesh 3D view preparation (measured percentage). After the geometry stage, the dialog reports actual mesh, face and triangle counts. STEP/IGES/BREP parsing itself does **not** report a numeric percentage because OpenCascade does not expose internal parser progress. Cancelling aborts the active read and/or terminates the CAD Web Worker.
 
 ## Import formats
 
