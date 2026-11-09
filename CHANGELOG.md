@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Show measured file-read and 3D mesh preparation percentages, import stages, live elapsed time and model statistics in the loading dialog. No fictional STEP parsing percentage.
 - Fix DXF entity subclass markers, handles and layer tables; validate all DXF modes with ezdxf
 - Accessible local-import loading dialog, processing status and cancellation for CAD imports
 

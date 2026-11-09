@@ -374,65 +374,91 @@ button:disabled{opacity:.48}
 }
 
 
-/* Local CAD import progress dialog */
+/* Measured CAD import feedback */
 .import-dialog{
-  box-sizing:border-box;
-  width:min(430px,calc(100vw - 28px));
-  max-width:none;
-  padding:0;
-  overflow:hidden;
-  border:1px solid #426773;
-  border-radius:13px;
-  background:linear-gradient(160deg,#1c2d39,#14222d);
-  color:#dce9e9;
-  box-shadow:0 28px 100px #000b;
+  box-sizing:border-box;width:min(480px,calc(100vw - 24px));max-width:none;
+  padding:0;overflow:hidden;border:1px solid #436673;border-radius:13px;
+  background:linear-gradient(160deg,#1c2d39,#14212b);color:#dce9e9;
+  box-shadow:0 28px 100px #000b
 }
-.import-dialog::backdrop{background:rgba(3,10,17,.76);backdrop-filter:blur(5px)}
-.import-dialog-content{
-  display:flex;flex-direction:column;align-items:center;
-  padding:34px 30px 27px;text-align:center;gap:0;
+.import-dialog::backdrop{background:rgba(3,10,17,.78);backdrop-filter:blur(5px)}
+.import-dialog-content{padding:27px 29px 25px;text-align:left}
+.import-head{display:flex;align-items:center;gap:13px}
+.import-head-mark{
+  display:flex;align-items:center;justify-content:center;width:47px;height:47px;
+  border:1px solid #4d8e74;border-radius:10px;background:#203e37;
+  color:#a3efc6;font:700 27px ui-monospace,monospace
 }
-.import-spinner{width:70px;height:70px;color:#81e3b3;margin:0 0 16px}
-.import-spinner svg{width:100%;height:100%;animation:import-spin 1.2s linear infinite}
-@keyframes import-spin{to{transform:rotate(360deg)}}
 .import-eyebrow{
-  color:#81e3b3;font:700 10px/1.6 ui-monospace,monospace;
-  letter-spacing:1.8px;
+  color:#8de7b6;font:700 10px/1.5 ui-monospace,monospace;letter-spacing:1.6px
 }
 .import-dialog h2{
-  color:#ecf7f3;font:700 19px/1.35 system-ui,sans-serif;
-  letter-spacing:0;margin:7px 0 13px;
+  color:#edf9f3;font:700 20px/1.3 system-ui,sans-serif;letter-spacing:0;margin:4px 0 0
 }
 .import-filename{
-  max-width:100%;margin:0 0 11px;
-  color:#bcced5;font:600 12px/1.5 ui-monospace,monospace;
-  overflow-wrap:anywhere;
+  margin:17px 0;padding:11px 12px;border:1px solid #354e5b;
+  border-radius:6px;background:#122430;color:#c1d5dc;
+  font:600 12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere
 }
+.import-steps{list-style:none;margin:0 0 18px;padding:0;display:grid;gap:7px}
+.import-steps li{
+  display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;
+  min-height:35px;padding:5px 9px;border:1px solid transparent;border-radius:6px;
+  color:#708894;font:500 12px/1.4 system-ui,sans-serif
+}
+.import-step-icon{
+  display:flex;align-items:center;justify-content:center;width:23px;height:23px;
+  border-radius:50%;border:1px solid #4a6570;background:#1c2d37;
+  font:700 10px ui-monospace,monospace;color:#829eaa
+}
+.import-step-state{font:600 10px ui-monospace,monospace;white-space:nowrap}
+.import-steps li[data-state=active]{background:#1f3b3a;border-color:#3d7567;color:#d0f4df}
+.import-steps li[data-state=active] .import-step-icon{
+  color:#0f2920;background:#91e6b8;border-color:#91e6b8;animation:import-pulse 1.6s ease-in-out infinite
+}
+.import-steps li[data-state=done]{color:#b9d2cc}
+.import-steps li[data-state=done] .import-step-icon{background:#204a39;border-color:#3b8964;color:#a6f5c7}
+.import-steps li[data-state=skipped]{color:#667e88}
+.import-phase-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 8px}
 .import-phase{
-  min-height:19px;margin:0 0 18px;
-  color:#96b7c0;font:12px/1.55 system-ui,sans-serif;
+  font:500 12px/1.5 system-ui,sans-serif;color:#c2d8d8;overflow-wrap:anywhere
 }
+.import-percent{color:#a3f1c8;font:700 13px ui-monospace,monospace;white-space:nowrap}
 .import-progress-track{
-  width:100%;height:5px;border-radius:999px;
-  overflow:hidden;background:#344856;
+  width:100%;height:8px;border-radius:999px;background:#2c4350;
+  overflow:hidden;position:relative
 }
 .import-progress-motion{
-  width:38%;height:100%;border-radius:inherit;
-  background:linear-gradient(90deg,#4baf90,#9aebbd);
-  animation:import-sweep 1.5s ease-in-out infinite alternate;
+  width:0;height:100%;border-radius:inherit;
+  background:linear-gradient(90deg,#3eaa82,#9cf1bf);transition:width .18s ease-out
 }
-@keyframes import-sweep{from{transform:translateX(-98%)}to{transform:translateX(265%)}}
-.import-privacy{
-  margin:18px 0 17px;
-  color:#8da3ad;font:11px/1.5 system-ui,sans-serif;
+.import-progress-track[data-mode=indeterminate] .import-progress-motion{
+  width:34%;animation:import-sweep 1.6s ease-in-out infinite alternate
 }
+@keyframes import-sweep{from{transform:translateX(-100%)}to{transform:translateX(295%)}}
+@keyframes import-pulse{50%{opacity:.68}}
+.import-detail{min-height:17px;margin:9px 0 14px;color:#9bb3bf;font:11px/1.5 ui-monospace,monospace}
+.import-meta{
+  display:flex;justify-content:space-between;gap:14px;padding-top:12px;
+  border-top:1px solid #344955;color:#96afb8;font:11px ui-monospace,monospace
+}
+.import-stats{
+  margin:13px 0 0;padding:10px 12px;border-radius:6px;
+  background:#1c3938;border:1px solid #335e55;
+  color:#a6dfc7;font:11px/1.6 ui-monospace,monospace
+}
+.import-stats[hidden]{display:none}
+.import-privacy{margin:17px 0 13px;text-align:center;color:#91a8b2;font:11px/1.5 system-ui,sans-serif}
 .import-cancel{
-  min-height:38px;padding:9px 22px;
+  display:block;width:100%;min-height:40px;padding:9px 18px;
   background:#263d46;border:1px solid #527380;border-radius:6px;
-  color:#d0e5de;font:600 12px system-ui,sans-serif;
+  color:#d1e8e0;font:600 12px system-ui,sans-serif
 }
 .import-cancel:hover{background:#34535b;border-color:#84ccb0}
 .import-cancel:focus-visible{outline:2px solid #94ecc0;outline-offset:3px}
+@media(max-width:420px){.import-dialog-content{padding:22px 17px 19px}.import-steps li{gap:6px}}
 @media(prefers-reduced-motion:reduce){
-  .import-spinner svg,.import-progress-motion{animation:none}
+  .import-progress-track[data-mode=indeterminate] .import-progress-motion,
+  .import-steps li[data-state=active] .import-step-icon{animation:none}
+  .import-progress-motion{transition:none}
 }
