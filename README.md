@@ -66,3 +66,8 @@ Copyright (C) 2026 maelremrem.
 StepFaceToDXF's original source code is licensed under the **GNU General Public License version 3 only (GPL-3.0-only)**. See the full [LICENSE](LICENSE) text.
 
 Third-party dependencies are distributed under their respective licenses.
+
+## DXF compatibility
+
+The DXF exporter writes AutoCAD R2000 (AC1015), millimeter units, explicitly defined layers, unique entity handles, and required subclasses for LWPOLYLINE, LINE, CIRCLE and ARC entities. Generated DXF files are also checked with the independent Python ezdxf library in CI.
+

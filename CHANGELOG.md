@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fix DXF entity subclass markers, handles and layer tables; validate all DXF modes with ezdxf
 - Accessible local-import loading dialog, processing status and cancellation for CAD imports
 
 ## 1.0.0 Beta
