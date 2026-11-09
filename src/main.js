@@ -10,6 +10,7 @@ import {EXPORTERS,transformContours} from './export.js';
 import {createExportZip} from './zip.js';
 import {createPreviewZoom} from './preview-zoom.js';
 import {createImportDialog} from './import-dialog.js';
+import {readFileWithProgress} from './read-progress.js';
 import './style.css';
 
 const el=id=>document.getElementById(id);
@@ -45,12 +46,19 @@ const builtInPresets={
   plotter:{stroke:'0.1',margin:'0',layer:'PLOT',dxfMode:'lines',includeHoles:true}
 };
 let objects=[],records=[],selected=new Map(),activeId=null,combined=null,worker=null;
-let seq=0,busy=false,basename='part',lastFile=null;
+let seq=0,busy=false,basename='part',lastFile=null,importController=null;
 const overlays=new Map();
 const importDialog=createImportDialog({
   dialog:el('importDialog'),
   filename:el('importDialogFilename'),
   phase:el('importDialogPhase'),
+  detail:el('importDialogDetail'),
+  percent:el('importDialogPercent'),
+  bar:el('importDialogBar'),
+  fill:el('importDialogFill'),
+  elapsed:el('importDialogElapsed'),
+  stepTime:el('importDialogStepTime'),
+  stats:el('importDialogStats'),
   cancelButton:el('cancelImportButton'),
   onCancel:()=>{
     if(!busy)return;
@@ -168,9 +176,11 @@ function clearModel(){
   el('emptyState').hidden=false;
 }
 function reset(){
-  importDialog.close();
   seq++;
+  importController?.abort();
+  importController=null;
   if(worker){worker.terminate();worker=null;}
+  importDialog.close();
   setBusy(false);clearModel();
   el('fileInput').value='';el('fileInfo').hidden=true;
   lastFile=null;el('reloadButton').disabled=true;
@@ -205,43 +215,67 @@ function addMesh(positions,indices,faceGroups,colorValue=0x90a9bb,kind='cad'){
   object.userData.lookup=lookup;
   objects.push(object);model.add(object);
 }
-function makeCadModel(imported,scale=1){
+const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+async function makeCadModel(imported,scale=1,onProgress=()=>{},valid=()=>true){
   clearModel();
-  for(const mesh of imported.meshes||[]){
+  const meshes=imported.meshes||[],total=meshes.length;
+  const stride=Math.max(1,Math.ceil(total/30));
+  let done=0;
+  onProgress(done,total);
+  await nextFrame();
+  for(const mesh of meshes){
+    if(!valid())return;
     const raw=mesh.attributes?.position?.array,indices=mesh.index?.array;
-    if(!raw?.length||!indices?.length||indices.length%3)continue;
-    const positions=Array.from(raw,n=>n*scale),nTriangles=indices.length/3;
-    const groups=(mesh.brep_faces?.length?mesh.brep_faces:[{first:0,last:nTriangles-1}])
-      .map(f=>({
-        first:Math.trunc(f.first),last:Math.trunc(f.last),
-        triangles:Array.from(indices.slice(Math.trunc(f.first)*3,(Math.trunc(f.last)+1)*3))
-      }))
-      .filter(f=>f.last>=f.first&&f.first>=0&&f.last<nTriangles);
-    addMesh(positions,Array.from(indices),groups,color(mesh.color),'cad');
-  }
-  finishModel();
-}
-function makeMeshModel(geometries,options){
-  clearModel();
-  for(const rawGeometry of geometries){
-    const raw=rawGeometry.getAttribute('position')?.array;
-    if(!raw?.length)continue;
-    const scale=unitScale(options.unit);
-    const positions=Array.from(raw,n=>n*scale);
-    const indices=rawGeometry.index?Array.from(rawGeometry.index.array):Array.from({length:positions.length/3},(_,i)=>i);
-    if(indices.length%3)throw Error('Mesh contains incomplete triangles.');
-    const result=groupMeshRegions(positions,indices,{
-      planeTolerance:options.planarity,normalDegrees:options.regionAngle
-    });
-    const faceGroups=result.regions.map(region=>({triangles:region.triangles,triangleIds:[]}));
-    for(let t=0;t<result.triToRegion.length;t++){
-      const regionId=result.triToRegion[t];
-      if(regionId>=0)faceGroups[regionId].triangleIds.push(t);
+    if(raw?.length&&indices?.length&&indices.length%3===0){
+      const positions=Array.from(raw,n=>n*scale),nTriangles=indices.length/3;
+      const groups=(mesh.brep_faces?.length?mesh.brep_faces:[{first:0,last:nTriangles-1}])
+        .map(f=>({
+          first:Math.trunc(f.first),last:Math.trunc(f.last),
+          triangles:Array.from(indices.slice(Math.trunc(f.first)*3,(Math.trunc(f.last)+1)*3))
+        }))
+        .filter(f=>f.last>=f.first&&f.first>=0&&f.last<nTriangles);
+      addMesh(positions,Array.from(indices),groups,color(mesh.color),'cad');
     }
-    addMesh(positions,indices,faceGroups,0x95aebd,'mesh');
-    rawGeometry.dispose();
+    done++;
+    if(done===total||done%stride===0){
+      onProgress(done,total);
+      await nextFrame();
+    }
   }
-  finishModel();
+  if(valid())finishModel();
+}
+async function makeMeshModel(geometries,options,onProgress=()=>{},valid=()=>true){
+  clearModel();
+  const total=geometries.length,stride=Math.max(1,Math.ceil(total/30));
+  let done=0;
+  onProgress(0,total);
+  await nextFrame();
+  for(const rawGeometry of geometries){
+    if(!valid())return;
+    const raw=rawGeometry.getAttribute('position')?.array;
+    if(raw?.length){
+      const scale=unitScale(options.unit);
+      const positions=Array.from(raw,n=>n*scale);
+      const indices=rawGeometry.index?Array.from(rawGeometry.index.array):Array.from({length:positions.length/3},(_,i)=>i);
+      if(indices.length%3)throw Error('Mesh contains incomplete triangles.');
+      const result=groupMeshRegions(positions,indices,{
+        planeTolerance:options.planarity,normalDegrees:options.regionAngle
+      });
+      const faceGroups=result.regions.map(region=>({triangles:region.triangles,triangleIds:[]}));
+      for(let t=0;t<result.triToRegion.length;t++){
+        const regionId=result.triToRegion[t];
+        if(regionId>=0)faceGroups[regionId].triangleIds.push(t);
+      }
+      addMesh(positions,indices,faceGroups,0x95aebd,'mesh');
+    }
+    rawGeometry.dispose();
+    done++;
+    if(done===total||done%stride===0){
+      onProgress(done,total);
+      await nextFrame();
+    }
+  }
+  if(valid())finishModel();
 }
 function finishModel(){
   if(!objects.length)throw Error('The file contains no renderable geometry.');
@@ -370,78 +404,93 @@ async function openCad(file){
   if(file.size>100*1024*1024)return status('Maximum file size is 100 MB.',true);
   let opts;
   try{opts=readImportOptions();}catch(err){status(err.message,true);return;}
-  reset();setBusy(true);lastFile=file;el('reloadButton').disabled=true;
+  reset();
+  setBusy(true);
+  lastFile=file;
+  importController=new AbortController();
   basename=file.name.replace(/\.(step|stp|igs|iges|brep|brp|stl|obj|ply)$/i,'')
     .replace(/[^a-z0-9_-]/gi,'_').slice(0,80)||'part';
   el('fileName').textContent=file.name;
   el('fileMeta').textContent=(file.size/1048576).toFixed(2)+' MB · '+kind.toUpperCase();
   el('fileInfo').hidden=false;
-  const id=++seq;
+  const id=++seq,active=()=>id===seq;
   importDialog.begin(file.name,kind);
+  const done=()=>{
+    if(!active())return;
+    importDialog.close();
+    setBusy(false);
+    importController=null;
+  };
+  const fail=error=>{
+    if(!active())return;
+    worker?.terminate();
+    worker=null;
+    done();
+    status(error.message||String(error),true);
+  };
   try{
-    status('Parsing '+kind.toUpperCase()+' locally…');
+    status('Reading '+kind.toUpperCase()+' locally…');
+    const buffer=await readFileWithProgress(file,{
+      signal:importController.signal,
+      onProgress:(loaded,total)=>{
+        if(active())importDialog.fileProgress(loaded,total);
+      }
+    });
+    if(!active())return;
     if(['step','iges','brep'].includes(kind)){
-      const buffer=await file.arrayBuffer();
-      if(id!==seq)return;
+      importDialog.stage('engine','Starting OpenCascade engine…');
+      await nextFrame();
+      if(!active())return;
       worker=new Worker(import.meta.env.BASE_URL+'occt-worker.js');
       worker.onmessage=async ({data})=>{
-        if(data.id!==id)return;
+        if(!active())return;
         if(data.type==='progress'){
-          importDialog.update(data.message);
+          importDialog.stage(data.step,data.message);
           return;
         }
-        if(data.type==='error'){
-          importDialog.close();
-          setBusy(false);
-          status(data.message,true);
+        if(data.type==='stats'){
+          importDialog.metrics(data.stats);
+          importDialog.update('Processed '+kind.toUpperCase()+' geometry in '+(data.durationMs/1000).toFixed(1)+'s');
           return;
         }
+        if(data.type==='error'){fail(new Error(data.message));return;}
         if(data.type==='result'){
-          importDialog.update('Preparing the 3D view…');
-          await new Promise(resolve=>requestAnimationFrame(resolve));
-          if(id!==seq)return;
-          try{makeCadModel(data.result,kind==='brep'?unitScale(opts.unit):1);}
-          catch(err){status(err.message,true);}
-          finally{
-            importDialog.close();
-            setBusy(false);
-          }
+          worker?.terminate();
+          worker=null;
+          importDialog.stage('render','Preparing the 3D view…');
+          try{
+            await makeCadModel(data.result,kind==='brep'?unitScale(opts.unit):1,
+              (count,total)=>importDialog.modelProgress(count,total),active);
+            if(active())done();
+          }catch(err){fail(err);}
         }
       };
-      worker.onerror=event=>{
-        if(id!==seq)return;
-        importDialog.close();
-        setBusy(false);
-        status(event.message||'CAD worker failed.',true);
-      };
+      worker.onerror=event=>fail(new Error(event.message||'CAD worker failed.'));
       const base=new URL(import.meta.env.BASE_URL,location.href).href;
       worker.postMessage({type:'load',id,buffer,base,format:kind,params:opts},[buffer]);
     }else{
-      importDialog.update('Preparing mesh geometry…');
-      await new Promise(resolve=>requestAnimationFrame(resolve));
-      if(id!==seq)return;
+      importDialog.stage('geometry','Decoding '+kind.toUpperCase()+' mesh…',{skip:['engine']});
+      await nextFrame();
+      if(!active())return;
       let geometries=[];
-      if(kind==='stl'){
-        geometries=[new STLLoader().parse(await file.arrayBuffer())];
-      }else if(kind==='ply'){
-        geometries=[new PLYLoader().parse(await file.arrayBuffer())];
-      }else{
-        const group=new OBJLoader().parse(await file.text());
-        group.traverse(child=>{if(child.isMesh&&child.geometry)geometries.push(child.geometry.clone());});
+      if(kind==='stl')geometries=[new STLLoader().parse(buffer)];
+      else if(kind==='ply')geometries=[new PLYLoader().parse(buffer)];
+      else{
+        const group=new OBJLoader().parse(new TextDecoder().decode(buffer));
+        group.traverse(child=>{
+          if(child.isMesh&&child.geometry)geometries.push(child.geometry.clone());
+        });
       }
-      if(id!==seq){geometries.forEach(g=>g.dispose());return;}
-      makeMeshModel(geometries,opts);
-      importDialog.close();
-      setBusy(false);
+      if(!active()){geometries.forEach(g=>g.dispose());return;}
+      const triangles=geometries.reduce((sum,g)=>sum+(g.index?.count||g.getAttribute('position')?.count||0)/3,0);
+      importDialog.metrics({meshes:geometries.length,faces:0,triangles:Math.floor(triangles)});
+      importDialog.stage('render','Preparing the 3D view…');
+      await makeMeshModel(geometries,opts,(count,total)=>importDialog.modelProgress(count,total),active);
+      if(active())done();
     }
-  }catch(err){
-    if(id===seq){
-      importDialog.close();
-      setBusy(false);
-      status(err.message,true);
-    }
-  }
+  }catch(err){fail(err);}
 }
+
 el('dropzone').addEventListener('click',()=>{if(!busy)el('fileInput').click();});
 el('dropzone').addEventListener('keydown',event=>{
   if(!busy&&(event.key==='Enter'||event.key===' ')){event.preventDefault();el('fileInput').click();}
